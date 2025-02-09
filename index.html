@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planeticlus | Ty</title>
+    <link rel="icon" type="image/png" href="favicon.ico">
+    <link rel="icon" type="image/png" href="favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Quicksand", sans-serif !important;
+            touch-action: none;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        .main-container {
+            width: 100%;
+            height: 100vh;
+            max-height: 96vh;
+            background: #2a2a2a;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            padding: 10px;
+            gap: 0px;
+            position: relative;
+        }
+
+        .game-container {
+            position: relative;
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            touch-action: none;
+        }
+
+        .overlay {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #statsOverlay {
+            bottom: 10px;
+            left: 10px;
+        }
+
+        #statsOverlay.hidden {
+            display: none;
+        }
+
+        .side-panel {
+            position: relative;
+            background: #222;
+            border-radius: 15px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 100%;
+            width: 250px;
+            transition: all 0.3s ease;
+            overflow: visible;
+        }
+
+        .side-panel.collapsed {
+            width: 0;
+            padding: 0;
+            margin: 0;
+            gap: 0px;
+        }
+
+        .side-panel.collapsed .control-group,
+        .side-panel.collapsed .theme-selector {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .side-panel.collapsed .toggle-panel {
+            right: calc(100% + 40px);
+        }
+
+        .side-panel.collapsed > * {
+            visibility: hidden;
+        }
+
+        .toggle-panel {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2a2a2a;
+            border: none;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px 0 0 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            visibility: visible !important;
+        }
+
+        .toggle-panel:hover {
+            background: #333;
+        }
+
+        .toggle-panel svg {
+            transition: transform 0.3s ease;
+        }
+
+        .side-panel.collapsed .toggle-panel svg {
+            transform: rotate(180deg);
+        }
+
+        .action-button {
+            background: #2a2a2a;
+            border: none;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            min-height: 44px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .action-button svg {
+            width: 24px;
+            height: 24px;
+            transition: transform 0.2s ease;
+        }
+
+        .action-button:hover {
+            background: #333;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .action-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            width: 100%;
+        }
+
+        #speedControl {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            outline: none;
+            margin: 10px 0;
+        }
+
+        #speedControl::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #speedControl::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .theme-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 8px;
+            padding: 10px;
+            background: #333;
+            border-radius: 8px;
+            height: auto;
+            width: 100%;
+        }
+
+        .theme-option {
+            aspect-ratio: 1;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 4px;
+            background: #2a2a2a;
+        }
+
+        .theme-option:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .theme-option.selected {
+            border-color: #fff;
+        }
+
+        .theme-option .color-preview {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-graph {
+            margin-top: 8px;
+        }
+
+        .graph-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 8px;
+                gap: 8px;
+            }
+
+            .side-panel {
+                position: fixed;
+                bottom: 10px;
+                right: 10px;
+                width: auto;
+                max-width: 250px;
+                height: auto;
+                max-height: 80vh;
+                z-index: 100;
+            }
+
+            .side-panel.collapsed {
+                transform: translateX(calc(100% + 20px));
+            }
+
+            .toggle-panel {
+                left: -35px;
+                padding: 8px;
+            }
+
+            .action-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .action-button {
+                flex: 1;
+                min-width: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="statsOverlay" class="overlay">
+                <div>Mass: <span id="massCount">0</span></div>
+                
+            </div>
+        </div>
+        <div class="side-panel">
+            <button class="toggle-panel">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor">
+                    <path d="m321-80-71-71 329-329-329-329 71-71 400 400L321-80Z"/>
+                </svg>
+            </button>
+            <div class="control-group">
+                <div class="action-buttons">
+                    <button class="action-button" id="startStopBtn">
+                        Start
+                    </button>
+                    <button class="action-button" id="resetBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e8eaed"><path d="M440-122q-121-15-200.5-105.5T160-440q0-66 26-126.5T260-672l57 57q-38 34-57.5 79T240-440q0 88 56 155.5T440-202v80Zm80 0v-80q87-16 143.5-83T720-440q0-100-70-170t-170-70h-3l44 44-56 56-140-140 140-140 56 56-44 44h3q134 0 227 93t93 227q0 121-79.5 211.5T520-122Z"/></svg>
+                    </button>
+                    <button class="action-button" id="toggleStatsBtn">
+                        Hide Stats
+                    </button>
+                </div>
+                <input type="range" id="speedControl" min="1" max="100" value="50">
+                
+            </div>
+            <div class="control-group">
+                <div id="themeSelector" class="theme-selector"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startStopBtn = document.getElementById('startStopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const massCount = document.getElementById('massCount');
+        const densityValue = document.getElementById('densityValue');
+        const sidePanel = document.querySelector('.side-panel');
+        const togglePanel = document.querySelector('.toggle-panel');
+        const speedControl = document.getElementById('speedControl');
+        const speedValue = document.getElementById('speedValue');
+
+        let width, height;
+        let isRunning = false;
+        let updateInterval = 30;
+        let particles = [];
+        let lastUpdateTime = 0;
+        let totalMass = 0;
+        let centerOfMass = { x: 0, y: 0 };
+
+
+    const colorThemes = [
+        { name: 'Default', primary: '#00ffff', secondary: '#e94560', tertiary: '#c5ee4f', background: '#0c0c1d' },
+        { name: 'Neon Nights', primary: '#ff00ff', secondary: '#00ff00', tertiary: '#ffff00', background: '#000000' },
+        { name: 'Pastel Dream', primary: '#ffffff', secondary: '#bae1ff', tertiary: '#baffc9', background: '#32a5ba' },
+        { name: 'Cyber Punk', primary: '#f72585', secondary: '#4361ee', tertiary: '#4cc9f0', background: '#3a0ca3' },
+        { name: 'Forest', primary: '#2d6a4F', secondary: '#ffffff', tertiary: '#d8f3dc', background: '#1b4332' },
+        { name: 'Sunset', primary: '#ff7b00', secondary: '#ffb700', tertiary: '#ff006e', background: '#330033' },
+        { name: 'Ocean', primary: '#00b4d8', secondary: '#0077b6', tertiary: '#caf0f8', background: '#03045e' },
+        { name: 'Monochrome', primary: '#ffffff', secondary: '#cccccc', tertiary: '#666666', background: '#000000' }
+    ];
+
+    let currentTheme = colorThemes[0];
+
+    class PlanetaryParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.mass = Math.random() * 9 + 1;
+        this.radius = Math.sqrt(this.mass) * 2;
+        this.composition = {
+            inner_core: this.mass > 8 ? 1 : 0,
+            outer_core: this.mass > 6 && this.mass <= 8 ? 1 : 0,
+            mantle: this.mass > 4 && this.mass <= 6 ? 1 : 0,
+            crust: this.mass <= 4 ? 1 : 0
+        };
+        this.merged = false;
+        this.trail = [];
+        this.maxTrailLength = 15;
+        this.glowIntensity = Math.random() * 0.8;
+        this.rotationAngle = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.02;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.pulseSpeed = 0.05;
+        this.atmosphereRadius = this.radius * 1.2;
+    }
+
+    draw(ctx) {
+        if (this.merged) return;
+
+        if (this.trail.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(this.trail[0].x, this.trail[0].y);
+            
+            for (let i = 1; i < this.trail.length; i++) {
+                const point = this.trail[i];
+                const controlPoint = {
+                    x: (this.trail[i-1].x + point.x) / 2,
+                    y: (this.trail[i-1].y + point.y) / 2
+                };
+                ctx.quadraticCurveTo(controlPoint.x, controlPoint.y, point.x, point.y);
+            }
+
+            const compositeColor = this.getCompositeColor();
+            const r = parseInt(compositeColor.slice(1, 3), 16);
+            const g = parseInt(compositeColor.slice(3, 5), 16);
+            const b = parseInt(compositeColor.slice(5, 7), 16);
+
+            const trailGradient = ctx.createLinearGradient(
+                this.trail[0].x, this.trail[0].y,
+                this.trail[this.trail.length - 1].x, this.trail[this.trail.length - 1].y
+            );
+            trailGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 1)`);
+            trailGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.5)`);
+            trailGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+            
+            ctx.strokeStyle = trailGradient;
+            ctx.lineWidth = this.radius * 0.3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotationAngle);
+
+        const compositeColor = this.getCompositeColor();
+        const r = parseInt(compositeColor.slice(1, 3), 16);
+        const g = parseInt(compositeColor.slice(3, 5), 16);
+        const b = parseInt(compositeColor.slice(5, 7), 16);
+
+        const atmosphere = ctx.createRadialGradient(
+            0, 0, this.radius,
+            0, 0, this.atmosphereRadius
+        );
+        atmosphere.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.125)`);
+        atmosphere.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, this.atmosphereRadius, 0, Math.PI * 2);
+        ctx.fillStyle = atmosphere;
+        ctx.fill();
+
+        const layerCount = 4;
+        const layerThickness = this.radius / layerCount;
+        const layers = ['inner_core', 'outer_core', 'mantle', 'crust'];
+        const colors = {
+            inner_core: currentTheme.primary,
+            outer_core: currentTheme.secondary,
+            mantle: interpolateColor(currentTheme.secondary, currentTheme.tertiary, 0.5),
+            crust: currentTheme.tertiary
+        };
+
+        for (let i = layerCount - 1; i >= 0; i--) {
+            const currentRadius = layerThickness * (i + 1);
+            const currentLayer = layers[i];
+            const layerColor = colors[currentLayer];
+            const intensity = this.composition[currentLayer];
+            const pulseOffset = Math.sin(this.pulsePhase + i * Math.PI / 2) * 0.1;
+
+            const r = parseInt(layerColor.slice(1, 3), 16);
+            const g = parseInt(layerColor.slice(3, 5), 16);
+            const b = parseInt(layerColor.slice(5, 7), 16);
+
+            const layerGradient = ctx.createRadialGradient(
+                0, 0, i * layerThickness,
+                0, 0, currentRadius
+            );
+
+            const alphaIntensity = Math.min(1, Math.max(0, intensity + pulseOffset));
+            layerGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaIntensity})`);
+            layerGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.25)`);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, currentRadius, 0, Math.PI * 2);
+            ctx.fillStyle = layerGradient;
+            ctx.fill();
+        }
+
+        const glowRadius = this.radius * (1.3 + Math.sin(this.pulsePhase) * 0.1 + this.glowIntensity);
+        const glowGradient = ctx.createRadialGradient(
+            0, 0, this.radius,
+            0, 0, glowRadius
+        );
+
+        glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.25)`);
+        glowGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.125)`);
+        glowGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = glowGradient;
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    update(particles) {
+        if (this.merged) return false;
+
+        let fx = 0;
+        let fy = 0;
+        const G = 0.1;
+
+        particles.forEach(other => {
+            if (other !== this && !other.merged) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    const force = (G * this.mass * other.mass) / (distance * distance);
+                    fx += (dx / distance) * force;
+                    fy += (dy / distance) * force;
+
+                    if (distance < (this.radius + other.radius) * 0.8) {
+                        this.merge(other);
+                    }
+                }
+            }
+        });
+
+        this.vx += fx / this.mass;
+        this.vy += fy / this.mass;
+        
+        this.vx *= 0.99;
+        this.vy *= 0.99;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        this.rotationAngle += this.rotationSpeed;
+        this.pulsePhase += this.pulseSpeed;
+        this.atmosphereRadius = this.radius * (1.2 + Math.sin(this.pulsePhase) * 0.1);
+
+        this.updateTrail();
+        this.handleBoundaries();
+
+        return true;
+    }
+
+    merge(other) {
+        if (this.mass >= other.mass && !other.merged) {
+            const totalMass = this.mass + other.mass;
+            this.vx = (this.vx * this.mass + other.vx * other.mass) / totalMass;
+            this.vy = (this.vy * this.mass + other.vy * other.mass) / totalMass;
+            
+            Object.keys(this.composition).forEach(layer => {
+                this.composition[layer] = (this.composition[layer] * this.mass + 
+                    other.composition[layer] * other.mass) / totalMass;
+            });
+            
+            this.mass = totalMass;
+            this.radius = Math.sqrt(this.mass) * 2;
+            this.atmosphereRadius = this.radius * 1.2;
+            other.merged = true;
+
+            this.glowIntensity = Math.min(1, this.glowIntensity + 0.1);
+            this.maxTrailLength = Math.min(20, this.maxTrailLength + 1);
+        }
+    }
+
+    updateTrail() {
+        this.trail.unshift({ 
+            x: this.x, 
+            y: this.y,
+            radius: this.radius,
+            atmosphereRadius: this.atmosphereRadius
+        });
+        if (this.trail.length > this.maxTrailLength) {
+            this.trail.pop();
+        }
+    }
+
+    handleBoundaries() {
+        const margin = this.radius;
+        if (this.x < margin) { this.x = margin; this.vx *= -0.5; }
+        if (this.x > width - margin) { this.x = width - margin; this.vx *= -0.5; }
+        if (this.y < margin) { this.y = margin; this.vy *= -0.5; }
+        if (this.y > height - margin) { this.y = height - margin; this.vy *= -0.5; }
+    }
+
+    getCompositeColor() {
+        const colors = {
+            inner_core: currentTheme.primary,
+            outer_core: currentTheme.secondary,
+            mantle: interpolateColor(currentTheme.secondary, currentTheme.tertiary, 0.5),
+            crust: currentTheme.tertiary
+        };
+        
+        let r = 0, g = 0, b = 0;
+        let totalWeight = 0;
+        
+        Object.entries(this.composition).forEach(([layer, weight]) => {
+            const color = colors[layer];
+            const rgb = {
+                r: parseInt(color.slice(1, 3), 16),
+                g: parseInt(color.slice(3, 5), 16),
+                b: parseInt(color.slice(5, 7), 16)
+            };
+            
+            r += rgb.r * weight;
+            g += rgb.g * weight;
+            b += rgb.b * weight;
+            totalWeight += weight;
+        });
+        
+        if (totalWeight > 0) {
+            r = Math.round(r / totalWeight);
+            g = Math.round(g / totalWeight);
+            b = Math.round(b / totalWeight);
+        }
+        
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+}
+    function interpolateColor(color1, color2, factor) {
+        const result = color1.slice(1).match(/.{2}/g).map((hex, i) => {
+            const rgb1 = parseInt(hex, 16);
+            const rgb2 = parseInt(color2.slice(1).match(/.{2}/g)[i], 16);
+            const interpolated = Math.round(rgb1 + (rgb2 - rgb1) * factor);
+            return interpolated.toString(16).padStart(2, '0');
+        });
+        return `#${result.join('')}`;
+    }
+
+    function initThemeSelector() {
+        const themeSelector = document.getElementById('themeSelector');
+        themeSelector.innerHTML = '';
+        colorThemes.forEach((theme, index) => {
+            const themeOption = document.createElement('div');
+            themeOption.className = 'theme-option';
+            themeOption.style.backgroundColor = theme.background;
+            themeOption.innerHTML = `
+                <div class="color-preview" style="background-color: ${theme.primary}"></div>
+                <div class="color-preview" style="background-color: ${theme.secondary}"></div>
+                <div class="color-preview" style="background-color: ${theme.tertiary}"></div>
+            `;
+            themeOption.addEventListener('click', () => selectTheme(index));
+            themeSelector.appendChild(themeOption);
+        });
+        updateSelectedTheme();
+    }
+
+    function initStatsToggle() {
+        const toggleStatsBtn = document.getElementById('toggleStatsBtn');
+        const statsOverlay = document.getElementById('statsOverlay');
+        let statsVisible = true;
+    
+        toggleStatsBtn.addEventListener('click', () => {
+            statsVisible = !statsVisible;
+            statsOverlay.classList.toggle('hidden', !statsVisible);
+            toggleStatsBtn.textContent = statsVisible ? 'Hide Stats' : 'Show Stats';
+        });
+    }
+
+    function selectTheme(index) {
+        currentTheme = colorThemes[index];
+        updateSelectedTheme();
+        updateGameColors();
+        particles.forEach(particle => {
+            particle.color = particle.getColorByType();
+        });
+    }
+
+    function updateSelectedTheme() {
+        const themeOptions = document.querySelectorAll('.theme-option');
+        themeOptions.forEach((option, index) => {
+            option.classList.toggle('selected', colorThemes[index] === currentTheme);
+        });
+    }
+
+    function updateGameColors() {
+        document.body.style.backgroundColor = currentTheme.background;
+        document.body.style.color = currentTheme.primary;
+    }
+
+    function resizeCanvas() {
+        const mainContainer = document.querySelector('.main-container');
+        canvas.width = mainContainer.clientWidth;
+        canvas.height = mainContainer.clientHeight;
+        width = canvas.width;
+        height = canvas.height;
+    }
+
+    function initParticles() {
+        particles = [];
+        for (let i = 0; i < 100; i++) {
+            particles.push(new PlanetaryParticle(
+                Math.random() * width,
+                Math.random() * height
+            ));
+        }
+        updateStats();
+    }
+
+    function calculateCenterOfMass() {
+        let totalX = 0;
+        let totalY = 0;
+        totalMass = 0;
+        
+        particles.forEach(particle => {
+            if (!particle.merged) {
+                totalX += particle.x * particle.mass;
+                totalY += particle.y * particle.mass;
+                totalMass += particle.mass;
+            }
+        });
+
+        centerOfMass.x = totalX / totalMass;
+        centerOfMass.y = totalY / totalMass;
+    }
+
+    function updateStats() {
+        const maxDataPoints = 50;
+
+        if (!window.statHistory) {
+            window.statHistory = {
+                density: new Array(maxDataPoints).fill(0)
+            };
+        }
+
+        calculateCenterOfMass();
+        
+        massCount.textContent = totalMass.toFixed(1);
+        
+        const activeMass = particles.filter(p => !p.merged).length;
+        
+    }
+
+    function drawGraph(ctx, data, color) {
+        const width = ctx.canvas.width;
+        const height = ctx.canvas.height;
+        const maxValue = Math.max(...data) || 1;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, width, height);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+
+        data.forEach((value, index) => {
+            const x = (index / (data.length - 1)) * width;
+            const y = height - (value / maxValue) * height;
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        ctx.stroke();
+        ctx.lineTo(width, height);
+        ctx.lineTo(0, height);
+        ctx.closePath();
+        ctx.fillStyle = color + '20';
+        ctx.fill();
+    }
+
+    function update() {
+        particles = particles.filter(particle => particle.update(particles));
+        
+        if (particles.filter(p => !p.merged).length < 50) {
+            for (let i = 0; i < 5; i++) {
+                particles.push(new PlanetaryParticle(
+                    Math.random() * width,
+                    Math.random() * height
+                ));
+            }
+        }
+
+        updateStats();
+    }
+
+    function draw() {
+        ctx.fillStyle = currentTheme.background + '20';
+        ctx.fillRect(0, 0, width, height);
+        particles.forEach(particle => particle.draw(ctx));
+    }
+
+    function gameLoop(timestamp) {
+        if (!lastUpdateTime) lastUpdateTime = timestamp;
+        const elapsed = timestamp - lastUpdateTime;
+
+        if (elapsed > updateInterval) {
+            update();
+            draw();
+            lastUpdateTime = timestamp;
+        }
+
+        if (isRunning) {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    let isMouseDown = false;
+    let lastMouseX = null;
+    let lastMouseY = null;
+
+    function handleMouseInteraction(e) {
+        const rect = canvas.getBoundingClientRect();
+        const currentX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+        const currentY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+        
+        if (lastMouseX !== null && lastMouseY !== null) {
+            const distance = Math.sqrt(
+                Math.pow(currentX - lastMouseX, 2) + 
+                Math.pow(currentY - lastMouseY, 2)
+            );
+            
+            const steps = Math.max(1, Math.floor(distance / 10));
+            
+            for (let i = 0; i <= steps; i++) {
+                const progress = i / steps;
+                const x = lastMouseX + (currentX - lastMouseX) * progress;
+                const y = lastMouseY + (currentY - lastMouseY) * progress;
+                
+                particles.push(new PlanetaryParticle(x, y));
+            }
+        }
+        
+        lastMouseX = currentX;
+        lastMouseY = currentY;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        const rect = canvas.getBoundingClientRect();
+        lastMouseX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+        lastMouseY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+        handleMouseInteraction(e);
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (isMouseDown) {
+            handleMouseInteraction(e);
+        }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+        isMouseDown = false;
+        lastMouseX = null;
+        lastMouseY = null;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+        isMouseDown = false;
+        lastMouseX = null;
+        lastMouseY = null;
+    });
+
+    togglePanel.addEventListener('click', () => {
+        sidePanel.classList.toggle('collapsed');
+        togglePanel.classList.toggle('collapsed');
+        resizeCanvas();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    startStopBtn.addEventListener('click', () => {
+        isRunning = !isRunning;
+        startStopBtn.textContent = isRunning ? 'Stop' : 'Start';
+        if (isRunning) {
+            lastUpdateTime = 0;
+            requestAnimationFrame(gameLoop);
+        }
+    });
+
+    speedControl.addEventListener('input', () => {
+        updateInterval = 100 - speedControl.value;
+        speedValue.textContent = `${speedControl.value}`;
+    });
+
+    resetBtn.addEventListener('click', initParticles);
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.statHistory = {
+            density: new Array(50).fill(0)
+        };
+        
+        initThemeSelector();
+        resizeCanvas();
+        initParticles();
+        initStatsToggle();
+    });
+    </script>
+</body>
+</html>
