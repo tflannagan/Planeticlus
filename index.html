@@ -359,7 +359,7 @@
 
         let width, height;
         let isRunning = false;
-        let updateInterval = 30;
+        let updateInterval = 10;
         let particles = [];
         let lastUpdateTime = 0;
         let totalMass = 0;
@@ -380,12 +380,12 @@
     let currentTheme = colorThemes[0];
 
     class PlanetaryParticle {
-    constructor(x, y) {
+        constructor(x, y, velocityX = null, velocityY = null, initialMass = null) {
         this.x = x;
         this.y = y;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = (Math.random() - 0.5) * 2;
-        this.mass = Math.random() * 9 + 1;
+        this.vx = velocityX !== null ? velocityX : (Math.random() - 0.5) * 2;
+        this.vy = velocityY !== null ? velocityY : (Math.random() - 0.5) * 2;
+        this.mass = initialMass !== null ? initialMass : Math.random() * 9 + 1;
         this.radius = Math.sqrt(this.mass) * 2;
         this.composition = {
             inner_core: this.mass > 8 ? 1 : 0,
@@ -394,6 +394,11 @@
             crust: this.mass <= 4 ? 1 : 0
         };
         this.merged = false;
+        this.exploding = false;
+        this.explosionRadius = 0;
+        this.explosionMaxRadius = this.radius * 10;
+        this.explosionSpeed = 2;
+        this.explosionParticles = [];
         this.trail = [];
         this.maxTrailLength = 15;
         this.glowIntensity = Math.random() * 0.8;
@@ -404,8 +409,80 @@
         this.atmosphereRadius = this.radius * 1.2;
     }
 
+    update(particles) {
+        if (this.merged) return false;
+        if (this.exploding) {
+            this.explosionRadius += this.explosionSpeed;
+            if (this.explosionRadius >= this.explosionMaxRadius) {
+                this.explosionParticles.forEach(particle => {
+                    particles.push(particle);
+                });
+                return false;
+            }
+            return true;
+        }
+
+        let fx = 0;
+        let fy = 0;
+        const G = 0.1;
+
+        particles.forEach(other => {
+            if (other !== this && !other.merged && !other.exploding) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    const force = (G * this.mass * other.mass) / (distance * distance);
+                    fx += (dx / distance) * force;
+                    fy += (dy / distance) * force;
+
+                    if (distance < (this.radius + other.radius) * 0.8) {
+                        this.merge(other);
+                    }
+                }
+            }
+        });
+
+        this.vx += fx / this.mass;
+        this.vy += fy / this.mass;
+        
+        this.vx *= 0.99;
+        this.vy *= 0.99;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        this.rotationAngle += this.rotationSpeed;
+        this.pulsePhase += this.pulseSpeed;
+        this.atmosphereRadius = this.radius * (1.2 + Math.sin(this.pulsePhase) * 0.1);
+
+        this.updateTrail();
+        this.handleBoundaries();
+
+        return true;
+    }
+
     draw(ctx) {
         if (this.merged) return;
+
+        if (this.exploding) {
+            const gradient = ctx.createRadialGradient(
+                this.x, this.y, 0,
+                this.x, this.y, this.explosionRadius
+            );
+            
+            gradient.addColorStop(0, `rgba(255, 200, 50, 0.8)`);
+            gradient.addColorStop(0.4, `rgba(255, 100, 50, 0.4)`);
+            gradient.addColorStop(1, `rgba(255, 50, 50, 0)`);
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.explosionRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            return;
+        }
 
         if (this.trail.length > 1) {
             ctx.beginPath();
@@ -514,54 +591,15 @@
 
         ctx.restore();
     }
-
-    update(particles) {
-        if (this.merged) return false;
-
-        let fx = 0;
-        let fy = 0;
-        const G = 0.1;
-
-        particles.forEach(other => {
-            if (other !== this && !other.merged) {
-                const dx = other.x - this.x;
-                const dy = other.y - this.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance > 0) {
-                    const force = (G * this.mass * other.mass) / (distance * distance);
-                    fx += (dx / distance) * force;
-                    fy += (dy / distance) * force;
-
-                    if (distance < (this.radius + other.radius) * 0.8) {
-                        this.merge(other);
-                    }
-                }
-            }
-        });
-
-        this.vx += fx / this.mass;
-        this.vy += fy / this.mass;
-        
-        this.vx *= 0.99;
-        this.vy *= 0.99;
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        this.rotationAngle += this.rotationSpeed;
-        this.pulsePhase += this.pulseSpeed;
-        this.atmosphereRadius = this.radius * (1.2 + Math.sin(this.pulsePhase) * 0.1);
-
-        this.updateTrail();
-        this.handleBoundaries();
-
-        return true;
-    }
-
     merge(other) {
         if (this.mass >= other.mass && !other.merged) {
             const totalMass = this.mass + other.mass;
+            
+            if (totalMass >= 1000000) {
+                this.initiateExplosion(totalMass);
+                return;
+            }
+
             this.vx = (this.vx * this.mass + other.vx * other.mass) / totalMass;
             this.vy = (this.vy * this.mass + other.vy * other.mass) / totalMass;
             
@@ -577,6 +615,28 @@
 
             this.glowIntensity = Math.min(1, this.glowIntensity + 0.1);
             this.maxTrailLength = Math.min(20, this.maxTrailLength + 1);
+        }
+    }
+
+    initiateExplosion(totalMass) {
+        this.exploding = true;
+        this.explosionRadius = 200;
+        const particleCount = Math.floor(totalMass / 2);
+        
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (Math.PI * 2 * i) / particleCount;
+            const speed = 5 + Math.random() * 5;
+            const velocityX = Math.cos(angle) * speed;
+            const velocityY = Math.sin(angle) * speed;
+            const particleMass = (totalMass / particleCount) * (0.5 + Math.random());
+            
+            this.explosionParticles.push(new PlanetaryParticle(
+                this.x,
+                this.y,
+                velocityX,
+                velocityY,
+                particleMass
+            ));
         }
     }
 
@@ -634,6 +694,7 @@
         return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
 }
+
     function interpolateColor(color1, color2, factor) {
         const result = color1.slice(1).match(/.{2}/g).map((hex, i) => {
             const rgb1 = parseInt(hex, 16);
@@ -907,5 +968,7 @@
         initStatsToggle();
     });
     </script>
+
 </body>
+
 </html>
